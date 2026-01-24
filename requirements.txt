@@ -1,0 +1,10 @@
+
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+google-auth
+requests
+python-multipart
