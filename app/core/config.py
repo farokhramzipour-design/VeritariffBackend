@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # These should be loaded from .env file
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/login/google/callback"
+    GOOGLE_REDIRECT_URI: str = "https://api.veritariffai.co/api/v1/login/google/callback"
     
     # CORS Origins: Add your production domains here
     BACKEND_CORS_ORIGINS: List[str] = [
