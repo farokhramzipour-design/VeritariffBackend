@@ -24,7 +24,7 @@ def login_google_authorize():
         f"https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id={settings.GOOGLE_CLIENT_ID}&redirect_uri={settings.GOOGLE_REDIRECT_URI}&scope=openid%20email%20profile&access_type=offline"
     )
 
-@router.get("/login/google/callback", response_model=schemas.User)
+@router.get("/login/google/callback")
 def login_google_callback(
     code: str,
     db: Session = Depends(deps.get_db)
@@ -49,6 +49,8 @@ def login_google_callback(
         raise HTTPException(status_code=400, detail=f"Google Error: {response_data.get('error_description', response_data)}")
 
     id_token_str = response_data.get("id_token")
+    access_token = response_data.get("access_token") # Get access token if needed later
+    
     if not id_token_str:
         logger.error(f"No ID token in response: {response_data}")
         raise HTTPException(status_code=400, detail="No ID token returned from Google")
@@ -78,7 +80,11 @@ def login_google_callback(
             user_in = schemas.UserCreate(email=email, google_id=google_id, full_name=name)
             user = crud.user.create(db, obj_in=user_in)
             
-    return user
+    # Redirect to frontend with token or user info
+    # In a real app, you would generate your own JWT token here and pass it to the frontend
+    # For now, we'll redirect to the homepage with the user ID as a query param
+    frontend_url = "https://veritariffai.co" # Or load from settings
+    return RedirectResponse(f"{frontend_url}?user_id={user.id}&email={user.email}")
 
 @router.post("/login/google", response_model=schemas.User)
 def login_google(
