@@ -12,18 +12,15 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "veritariff"
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
-    GOOGLE_CLIENT_ID: str = "875867590179-solq59gvt3kn448jlsvtgfl0m1co53ol.apps.googleusercontent.com"
-    GOOGLE_CLIENT_SECRET: str = "875867590179-solq59gvt3kn448jlsvtgfl0m1co53ol.apps.googleusercontent.com"
+    # These should be loaded from .env file
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/login/google/callback"
     
     # CORS Origins: Add your production domains here
     BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost",
-        "http://localhost:8080",
-        "http://localhost:3000",
         "https://veritariffai.co",
-        "https://www.veritariffai.co",
-        "https://api.veritariffai.co"
+        "https://www.veritariffai.co"
     ]
 
     @property
@@ -35,5 +32,6 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()

@@ -4,7 +4,9 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 pydantic
+pydantic[email]
 pydantic-settings
 google-auth
 requests
 python-multipart
+email-validator

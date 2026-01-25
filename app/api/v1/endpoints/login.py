@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import requests as req
+import logging
 
 from app import crud, schemas
 from app.api import deps
 from app.core.config import settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/login/google/authorize")
 def login_google_authorize():
@@ -38,9 +40,18 @@ def login_google_callback(
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
         "grant_type": "authorization_code",
     }
+    
     response = req.post(token_url, data=data)
-    access_token = response.json().get("access_token")
-    id_token_str = response.json().get("id_token")
+    response_data = response.json()
+    
+    if "error" in response_data:
+        logger.error(f"Google Token Exchange Error: {response_data}")
+        raise HTTPException(status_code=400, detail=f"Google Error: {response_data.get('error_description', response_data)}")
+
+    id_token_str = response_data.get("id_token")
+    if not id_token_str:
+        logger.error(f"No ID token in response: {response_data}")
+        raise HTTPException(status_code=400, detail="No ID token returned from Google")
     
     try:
         id_info = id_token.verify_oauth2_token(id_token_str, requests.Request(), settings.GOOGLE_CLIENT_ID)
@@ -52,8 +63,9 @@ def login_google_callback(
         email = id_info['email']
         name = id_info.get('name')
         
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid Google token")
+    except ValueError as e:
+        logger.error(f"Token verification failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
 
     user = crud.user.get_by_google_id(db, google_id=google_id)
     if not user:
@@ -87,8 +99,9 @@ def login_google(
         email = id_info['email']
         name = id_info.get('name')
         
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid Google token")
+    except ValueError as e:
+        logger.error(f"Token verification failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
 
     user = crud.user.get_by_google_id(db, google_id=google_id)
     if not user:

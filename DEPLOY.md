@@ -49,6 +49,8 @@ This guide assumes you have a Linux server (Ubuntu/Debian) with Docker and Docke
     # Google Auth
     GOOGLE_CLIENT_ID=your-google-client-id
     GOOGLE_CLIENT_SECRET=your-google-client-secret
+    
+    # IMPORTANT: This must match EXACTLY what is in Google Cloud Console
     GOOGLE_REDIRECT_URI=https://api.veritariffai.co/api/v1/login/google/callback
     
     # Domain
