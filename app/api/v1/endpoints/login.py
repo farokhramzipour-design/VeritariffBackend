@@ -121,3 +121,12 @@ def login_google(
             user = crud.user.create(db, obj_in=user_in)
             
     return user
+
+@router.post("/logout")
+def logout():
+    """
+    Logout endpoint.
+    Since this API is currently stateless (using tokens), the client just needs to discard the token.
+    This endpoint serves as a placeholder or can be used to clear server-side sessions if implemented later.
+    """
+    return {"message": "Successfully logged out"}
