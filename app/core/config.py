@@ -15,12 +15,20 @@ class Settings(BaseSettings):
     # These should be loaded from .env file
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "https://api.veritariffai.co/api/v1/login/google/callback"
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/login/google/callback"
+    
+    SECRET_KEY: str = "CHANGE_THIS_TO_A_SECURE_RANDOM_STRING"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS Origins: Add your production domains here
     BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost",
+        "http://localhost:8080",
+        "http://localhost:3000",
         "https://veritariffai.co",
-        "https://www.veritariffai.co"
+        "https://www.veritariffai.co",
+        "https://api.veritariffai.co"
     ]
 
     @property

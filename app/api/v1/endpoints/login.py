@@ -8,9 +8,10 @@ from google.auth.transport import requests
 import requests as req
 import logging
 
-from app import crud, schemas
+from app import crud, models, schemas
 from app.api import deps
 from app.core.config import settings
+from app.core.security import create_access_token
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,7 +50,6 @@ def login_google_callback(
         raise HTTPException(status_code=400, detail=f"Google Error: {response_data.get('error_description', response_data)}")
 
     id_token_str = response_data.get("id_token")
-    access_token = response_data.get("access_token") # Get access token if needed later
     
     if not id_token_str:
         logger.error(f"No ID token in response: {response_data}")
@@ -73,60 +73,40 @@ def login_google_callback(
     if not user:
         user = crud.user.get_by_email(db, email=email)
         if user:
-            # Link existing user with Google ID
             user = crud.user.update(db, db_obj=user, obj_in={"google_id": google_id})
         else:
-            # Create new user
             user_in = schemas.UserCreate(email=email, google_id=google_id, full_name=name)
             user = crud.user.create(db, obj_in=user_in)
             
-    # Redirect to frontend with token or user info
-    # In a real app, you would generate your own JWT token here and pass it to the frontend
-    # For now, we'll redirect to the homepage with the user ID as a query param
-    frontend_url = "https://veritariffai.co" # Or load from settings
-    return RedirectResponse(f"{frontend_url}?user_id={user.id}&email={user.email}")
+    access_token = create_access_token(subject=user.id)
+    
+    frontend_url = "https://veritariffai.co"
+    return RedirectResponse(f"{frontend_url}?token={access_token}")
 
-@router.post("/login/google", response_model=schemas.User)
-def login_google(
-    *,
+@router.post("/login/access-token", response_model=schemas.Token)
+def login_access_token(
     db: Session = Depends(deps.get_db),
-    token: str
+    token: str = Depends() # This is a placeholder for a different login flow
 ) -> Any:
     """
-    Login with Google (using ID token directly).
+    OAuth2 compatible token login, get an access token for future requests
     """
-    try:
-        id_info = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
-        
-        if id_info['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-            raise ValueError('Wrong issuer.')
-
-        google_id = id_info['sub']
-        email = id_info['email']
-        name = id_info.get('name')
-        
-    except ValueError as e:
-        logger.error(f"Token verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
-
-    user = crud.user.get_by_google_id(db, google_id=google_id)
-    if not user:
-        user = crud.user.get_by_email(db, email=email)
-        if user:
-            # Link existing user with Google ID
-            user = crud.user.update(db, db_obj=user, obj_in={"google_id": google_id})
-        else:
-            # Create new user
-            user_in = schemas.UserCreate(email=email, google_id=google_id, full_name=name)
-            user = crud.user.create(db, obj_in=user_in)
-            
-    return user
+    # This endpoint is required for the OAuth2PasswordBearer, but we are handling login via Google.
+    # In a real app with username/password, this is where you'd verify the password and issue a token.
+    raise HTTPException(status_code=400, detail="This login method is not supported")
 
 @router.post("/logout")
 def logout():
     """
     Logout endpoint.
-    Since this API is currently stateless (using tokens), the client just needs to discard the token.
-    This endpoint serves as a placeholder or can be used to clear server-side sessions if implemented later.
     """
     return {"message": "Successfully logged out"}
+
+@router.get("/users/me", response_model=schemas.User)
+def read_users_me(
+    current_user: models.User = Depends(deps.get_current_user),
+):
+    """
+    Get current user.
+    """
+    return current_user
