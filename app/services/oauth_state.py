@@ -33,7 +33,10 @@ async def consume_oauth_state(db: AsyncSession, provider: str, raw_state: str) -
         select(OAuthState).where(OAuthState.provider == provider, OAuthState.state_hash == state_hash)
     )
     record = result.scalar_one_or_none()
-    if not record or record.used_at is not None or record.expires_at < datetime.utcnow():
+    now = datetime.utcnow()
+    if record and record.expires_at and record.expires_at.tzinfo is not None:
+        now = now.replace(tzinfo=record.expires_at.tzinfo)
+    if not record or record.used_at is not None or record.expires_at < now:
         raise ValueError("Invalid or expired state")
     record.used_at = datetime.utcnow()
     await db.commit()
