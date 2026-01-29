@@ -1,6 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
+from urllib.parse import urlsplit, urlunsplit, urlencode, parse_qsl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -86,7 +87,11 @@ async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_
 
     tokens = await _issue_tokens(db, user)
     if settings.FRONTEND_URL:
-        return RedirectResponse(f"{settings.FRONTEND_URL}?token={tokens.access_token}")
+        parts = urlsplit(settings.FRONTEND_URL)
+        query = dict(parse_qsl(parts.query))
+        query["token"] = tokens.access_token
+        redirect_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+        return RedirectResponse(redirect_url)
     return tokens
 
 
@@ -137,7 +142,11 @@ async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(g
 
     tokens = await _issue_tokens(db, user)
     if settings.FRONTEND_URL:
-        return RedirectResponse(f"{settings.FRONTEND_URL}?token={tokens.access_token}")
+        parts = urlsplit(settings.FRONTEND_URL)
+        query = dict(parse_qsl(parts.query))
+        query["token"] = tokens.access_token
+        redirect_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+        return RedirectResponse(redirect_url)
     return tokens
 
 
