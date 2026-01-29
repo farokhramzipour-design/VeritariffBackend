@@ -24,7 +24,7 @@ class GoogleOAuthService:
         }
         if nonce:
             params["nonce"] = nonce
-        return httpx.URL(GOOGLE_AUTH_URL, params=params).human_repr()
+        return str(httpx.URL(GOOGLE_AUTH_URL, params=params))
 
     async def exchange_code(self, code: str) -> dict:
         async with httpx.AsyncClient() as client:

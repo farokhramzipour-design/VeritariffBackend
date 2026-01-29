@@ -26,7 +26,7 @@ class MicrosoftOAuthService:
             "scope": scope,
             "state": state,
         }
-        return httpx.URL(self.auth_url, params=params).human_repr()
+        return str(httpx.URL(self.auth_url, params=params))
 
     async def exchange_code(self, code: str) -> dict:
         async with httpx.AsyncClient() as client:

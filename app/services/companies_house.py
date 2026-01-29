@@ -16,7 +16,7 @@ class CompaniesHouseService:
             "redirect_uri": redirect_uri,
             "state": state,
         }
-        return httpx.URL(self.auth_url, params=params).human_repr()
+        return str(httpx.URL(self.auth_url, params=params))
 
     async def exchange_code(self, code: str, redirect_uri: str) -> dict:
         async with httpx.AsyncClient() as client:
