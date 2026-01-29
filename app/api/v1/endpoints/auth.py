@@ -86,9 +86,7 @@ async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_
 
     tokens = await _issue_tokens(db, user)
     if settings.FRONTEND_URL:
-        return RedirectResponse(
-            f"{settings.FRONTEND_URL}/auth/callback#access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
-        )
+        return RedirectResponse(f"{settings.FRONTEND_URL}?token={tokens.access_token}")
     return tokens
 
 
@@ -139,9 +137,7 @@ async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(g
 
     tokens = await _issue_tokens(db, user)
     if settings.FRONTEND_URL:
-        return RedirectResponse(
-            f"{settings.FRONTEND_URL}/auth/callback#access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
-        )
+        return RedirectResponse(f"{settings.FRONTEND_URL}?token={tokens.access_token}")
     return tokens
 
 
