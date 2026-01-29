@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, ConfigDict
 from app.models.enums import PlanEnum, AccountTypeEnum, StatusEnum, AuthProviderEnum
 
@@ -14,7 +15,7 @@ class UserCreate(UserBase):
 
 
 class UserOut(UserBase):
-    id: str
+    id: UUID
     plan: PlanEnum
     account_type: AccountTypeEnum
     status: StatusEnum
@@ -23,4 +24,4 @@ class UserOut(UserBase):
     updated_at: datetime
     last_login_at: datetime | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, ser_json_by_alias=True)
