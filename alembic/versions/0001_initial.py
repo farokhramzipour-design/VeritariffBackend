@@ -15,17 +15,37 @@ depends_on = None
 
 
 def upgrade() -> None:
-    plan_enum = sa.Enum("free", "pro", name="planenum", create_type=False)
-    account_enum = sa.Enum("free", "uk_exporter", "forwarder", "eu_member", "admin", name="accounttypeenum", create_type=False)
-    status_enum = sa.Enum("active", "pending", "blocked", name="statusenum", create_type=False)
-    auth_enum = sa.Enum("google", "microsoft", name="authproviderenum", create_type=False)
-    invite_enum = sa.Enum("pending", "accepted", "expired", "cancelled", name="invitestatusenum", create_type=False)
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE planenum AS ENUM ('free', 'pro'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE accounttypeenum AS ENUM ('free', 'uk_exporter', 'forwarder', 'eu_member', 'admin'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE statusenum AS ENUM ('active', 'pending', 'blocked'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE authproviderenum AS ENUM ('google', 'microsoft'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE invitestatusenum AS ENUM ('pending', 'accepted', 'expired', 'cancelled'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
 
-    plan_enum.create(op.get_bind(), checkfirst=True)
-    account_enum.create(op.get_bind(), checkfirst=True)
-    status_enum.create(op.get_bind(), checkfirst=True)
-    auth_enum.create(op.get_bind(), checkfirst=True)
-    invite_enum.create(op.get_bind(), checkfirst=True)
+    plan_enum = postgresql.ENUM("free", "pro", name="planenum", create_type=False)
+    account_enum = postgresql.ENUM("free", "uk_exporter", "forwarder", "eu_member", "admin", name="accounttypeenum", create_type=False)
+    status_enum = postgresql.ENUM("active", "pending", "blocked", name="statusenum", create_type=False)
+    auth_enum = postgresql.ENUM("google", "microsoft", name="authproviderenum", create_type=False)
+    invite_enum = postgresql.ENUM("pending", "accepted", "expired", "cancelled", name="invitestatusenum", create_type=False)
 
     op.create_table(
         "users",
