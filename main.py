@@ -1,4 +1,5 @@
 
+import logging
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -6,6 +7,8 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -17,7 +17,7 @@ from app.services.oauth_google import GoogleOAuthService
 from app.services.oauth_microsoft import MicrosoftOAuthService
 
 router = APIRouter(prefix="/auth")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 google_oauth = GoogleOAuthService(
