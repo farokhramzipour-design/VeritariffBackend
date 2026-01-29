@@ -1,5 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
 from fastapi.responses import RedirectResponse
 from urllib.parse import urlsplit, urlunsplit, urlencode, parse_qsl
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from app.services.oauth_google import GoogleOAuthService
 from app.services.oauth_microsoft import MicrosoftOAuthService
 
 router = APIRouter(prefix="/auth")
+logger = logging.getLogger(__name__)
 
 
 google_oauth = GoogleOAuthService(
@@ -49,9 +51,11 @@ async def google_login(db: AsyncSession = Depends(get_db)):
 
 @router.get("/google/callback")
 async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
+    logger.info("Google OAuth callback received state=%s code_prefix=%s", state, code[:10])
     try:
         await consume_oauth_state(db, provider="google", raw_state=state)
     except ValueError:
+        logger.warning("Google OAuth invalid state=%s", state)
         raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
     token_data = await google_oauth.exchange_code(code)
@@ -91,6 +95,7 @@ async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_
         query = dict(parse_qsl(parts.query))
         query["token"] = tokens.access_token
         redirect_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+        logger.info("Google OAuth redirecting to %s", redirect_url)
         return RedirectResponse(redirect_url)
     return tokens
 
@@ -104,9 +109,11 @@ async def microsoft_login(db: AsyncSession = Depends(get_db)):
 
 @router.get("/microsoft/callback")
 async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
+    logger.info("Microsoft OAuth callback received state=%s code_prefix=%s", state, code[:10])
     try:
         await consume_oauth_state(db, provider="microsoft", raw_state=state)
     except ValueError:
+        logger.warning("Microsoft OAuth invalid state=%s", state)
         raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
     token_data = await microsoft_oauth.exchange_code(code)
@@ -146,6 +153,7 @@ async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(g
         query = dict(parse_qsl(parts.query))
         query["token"] = tokens.access_token
         redirect_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+        logger.info("Microsoft OAuth redirecting to %s", redirect_url)
         return RedirectResponse(redirect_url)
     return tokens
 
