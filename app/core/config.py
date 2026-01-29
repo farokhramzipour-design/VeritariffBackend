@@ -32,15 +32,15 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "https://veritariffai.co"
 
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: str = ""
 
     AUTO_CREATE_TABLES: bool = False
 
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
-    def assemble_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",") if i.strip()]
-        return v
+    @property
+    def cors_origins(self) -> List[str]:
+        if not self.BACKEND_CORS_ORIGINS:
+            return []
+        return [i.strip() for i in self.BACKEND_CORS_ORIGINS.split(",") if i.strip()]
 
     model_config = SettingsConfigDict(
         env_file=".env",
