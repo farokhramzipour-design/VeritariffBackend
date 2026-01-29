@@ -46,7 +46,7 @@ async def google_login(db: AsyncSession = Depends(get_db)):
     return RedirectResponse(auth_url)
 
 
-@router.get("/google/callback", response_model=TokenPair)
+@router.get("/google/callback")
 async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
     try:
         await consume_oauth_state(db, provider="google", raw_state=state)
@@ -84,7 +84,12 @@ async def google_callback(code: str, state: str, db: AsyncSession = Depends(get_
         user.auth_provider = AuthProviderEnum.google
         await db.commit()
 
-    return await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user)
+    if settings.FRONTEND_URL:
+        return RedirectResponse(
+            f"{settings.FRONTEND_URL}/auth/callback#access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+        )
+    return tokens
 
 
 @router.get("/microsoft/login")
@@ -94,7 +99,7 @@ async def microsoft_login(db: AsyncSession = Depends(get_db)):
     return RedirectResponse(auth_url)
 
 
-@router.get("/microsoft/callback", response_model=TokenPair)
+@router.get("/microsoft/callback")
 async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
     try:
         await consume_oauth_state(db, provider="microsoft", raw_state=state)
@@ -132,7 +137,12 @@ async def microsoft_callback(code: str, state: str, db: AsyncSession = Depends(g
         user.auth_provider = AuthProviderEnum.microsoft
         await db.commit()
 
-    return await _issue_tokens(db, user)
+    tokens = await _issue_tokens(db, user)
+    if settings.FRONTEND_URL:
+        return RedirectResponse(
+            f"{settings.FRONTEND_URL}/auth/callback#access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+        )
+    return tokens
 
 
 @router.post("/refresh", response_model=TokenPair)
