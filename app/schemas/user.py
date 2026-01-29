@@ -1,28 +1,26 @@
-
-from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
+from app.models.enums import PlanEnum, AccountTypeEnum, StatusEnum, AuthProviderEnum
 
-# Shared properties
+
 class UserBase(BaseModel):
-    email: Optional[EmailStr] = None
-    is_active: Optional[bool] = True
-    is_superuser: bool = False
-    full_name: Optional[str] = None
-
-# Properties to receive via API on creation
-class UserCreate(UserBase):
     email: EmailStr
-    google_id: str
+    first_name: str | None = None
+    last_name: str | None = None
 
-# Properties to receive via API on update
-class UserUpdate(UserBase):
-    pass
 
-class UserInDBBase(UserBase):
-    id: Optional[int] = None
+class UserCreate(UserBase):
+    auth_provider: AuthProviderEnum
+
+
+class UserOut(UserBase):
+    id: str
+    plan: PlanEnum
+    account_type: AccountTypeEnum
+    status: StatusEnum
+    auth_provider: AuthProviderEnum
+    created_at: datetime
+    updated_at: datetime
+    last_login_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
-
-# Additional properties to return via API
-class User(UserInDBBase):
-    pass

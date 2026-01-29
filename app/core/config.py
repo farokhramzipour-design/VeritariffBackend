@@ -1,45 +1,50 @@
-
+from typing import List, Optional
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from pydantic import AnyHttpUrl, field_validator
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Veritariff Backend"
     API_V1_STR: str = "/api/v1"
-    
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "password"
-    POSTGRES_DB: str = "veritariff"
-    SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
-    # These should be loaded from .env file
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/veritariff"
+
+    JWT_SECRET_KEY: str = "CHANGE_ME"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/login/google/callback"
-    
-    SECRET_KEY: str = "CHANGE_THIS_TO_A_SECURE_RANDOM_STRING"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    # CORS Origins: Add your production domains here
-    BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost",
-        "http://localhost:8080",
-        "http://localhost:3000",
-        "https://veritariffai.co",
-        "https://www.veritariffai.co",
-        "https://api.veritariffai.co"
-    ]
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
 
-    @property
-    def database_url(self) -> str:
-        if self.SQLALCHEMY_DATABASE_URI:
-            return self.SQLALCHEMY_DATABASE_URI
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
+    MICROSOFT_CLIENT_ID: str = ""
+    MICROSOFT_CLIENT_SECRET: str = ""
+    MICROSOFT_TENANT: str = "common"
+    MICROSOFT_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/microsoft/callback"
+
+    COMPANIES_HOUSE_CLIENT_ID: str = ""
+    COMPANIES_HOUSE_CLIENT_SECRET: str = ""
+    COMPANIES_HOUSE_AUTH_URL: str = "https://account.companieshouse.gov.uk/oauth2/authorize"
+    COMPANIES_HOUSE_TOKEN_URL: str = "https://account.companieshouse.gov.uk/oauth2/token"
+    COMPANIES_HOUSE_API_BASE_URL: str = "https://api.company-information.service.gov.uk"
+    COMPANIES_HOUSE_REDIRECT_URI: str = "http://localhost:8000/api/v1/upgrade/uk-exporter/callback"
+
+    FRONTEND_URL: str = "https://veritariffai.co"
+
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+
+    AUTO_CREATE_TABLES: bool = False
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    def assemble_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
 
     class Config:
-        case_sensitive = True
         env_file = ".env"
-        extra = "ignore"
+        case_sensitive = True
+
 
 settings = Settings()

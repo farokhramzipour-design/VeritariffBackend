@@ -11,7 +11,7 @@
 2.  **Database Setup**:
     *   Ensure PostgreSQL is running.
     *   Create a database named `veritariff`.
-    *   Update `.env` with your database credentials.
+    *   Update `.env` with your `DATABASE_URL`.
 
 3.  **Google Login Setup**:
     *   Go to the [Google Cloud Console](https://console.cloud.google.com/).
@@ -42,7 +42,12 @@
 
     *   Copy the **Client ID** and **Client Secret** and paste them into your `.env` file.
 
-4.  **Run the App**:
+4.  **Run Alembic Migrations**:
+    ```bash
+    alembic upgrade head
+    ```
+
+5.  **Run the App**:
     ```bash
     uvicorn main:app --reload
     ```
