@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: str = ""
 
     AUTO_CREATE_TABLES: bool = False
+    UPLOAD_DIR: str = "./uploads"
+    MAX_UPLOAD_MB: int = 20
+    LLM_PROVIDER: str | None = None
+    OPENAI_MODEL: str = "gpt-4o"
 
     @property
     def cors_origins(self) -> List[str]:

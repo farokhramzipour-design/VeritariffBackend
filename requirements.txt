@@ -14,3 +14,8 @@ passlib[bcrypt]
 pytest
 pytest-asyncio
 aiosqlite
+pdfplumber
+python-docx
+pytesseract
+Pillow
+openai
