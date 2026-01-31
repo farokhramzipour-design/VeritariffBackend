@@ -47,10 +47,12 @@ class LLMClient:
         self.provider = provider
         self.model = model
         self._client = None
+        logger.info("LLM init provider=%s model=%s", self.provider, self.model)
         if self.provider == "openai":
             from openai import OpenAI
 
             self._client = OpenAI()
+            logger.info("LLM OpenAI client initialized")
 
     def parse_json(self, raw: str) -> dict[str, Any] | None:
         try:
@@ -60,6 +62,7 @@ class LLMClient:
 
     async def _openai_call(self, prompt: str, text: str) -> str | None:
         if not self._client or not self.model:
+            logger.warning("LLM OpenAI call skipped (client=%s model=%s)", bool(self._client), self.model)
             return None
 
         def _call() -> str | None:
@@ -81,20 +84,28 @@ class LLMClient:
                 return response.output_text
             return None
 
-        return await anyio.to_thread.run_sync(_call)
+        try:
+            return await anyio.to_thread.run_sync(_call)
+        except Exception as exc:
+            logger.exception("LLM OpenAI call failed: %s", exc)
+            return None
 
     async def extract_json(self, prompt: str, text: str) -> dict[str, Any] | None:
         if not self.provider:
+            logger.warning("LLM provider not set")
             return None
         if self.provider == "openai":
             raw = await self._openai_call(prompt, text)
             if not raw:
+                logger.warning("LLM OpenAI returned empty response")
                 return None
             parsed = self.parse_json(raw)
             if parsed is not None:
                 return parsed
             repaired = await self._openai_call(REPAIR_PROMPT, raw)
             if not repaired:
+                logger.warning("LLM OpenAI repair returned empty response")
                 return None
             return self.parse_json(repaired)
+        logger.warning("LLM provider unsupported: %s", self.provider)
         return None
