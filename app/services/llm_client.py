@@ -78,6 +78,7 @@ class LLMClient:
                         "content": [{"type": "input_text", "text": text}],
                     },
                 ],
+                text={"format": {"type": "json_object"}},
                 temperature=0,
             )
             if hasattr(response, "output_text"):
@@ -99,9 +100,11 @@ class LLMClient:
             if not raw:
                 logger.warning("LLM OpenAI returned empty response")
                 return None
+            logger.info("LLM OpenAI raw length=%s", len(raw))
             parsed = self.parse_json(raw)
             if parsed is not None:
                 return parsed
+            logger.warning("LLM OpenAI JSON parse failed, attempting repair")
             repaired = await self._openai_call(REPAIR_PROMPT, raw)
             if not repaired:
                 logger.warning("LLM OpenAI repair returned empty response")
