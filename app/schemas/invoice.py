@@ -33,7 +33,7 @@ class ExtractedInvoicePayload(BaseModel):
     tax: float | None = None
     total: float | None = None
     line_items: list[LineItemExtract] = Field(default_factory=list)
-    field_confidence: dict[str, float] = Field(default_factory=dict)
+    field_confidence: dict[str, float | None] = Field(default_factory=dict)
 
 
 class DraftInvoiceOut(BaseModel):
