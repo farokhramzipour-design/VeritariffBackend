@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from app.core.config import settings
 from app.integrations.tariff import TariffClient
 
 router = APIRouter(prefix="/tariff")
+logger = logging.getLogger("uvicorn.error")
 
 client = TariffClient(settings.TARIFF_API_BASE_URL)
 
@@ -14,8 +16,12 @@ async def tariff_search(payload: dict):
     if not q:
         raise HTTPException(status_code=400, detail="q required")
     results = await client.search(q, limit=limit)
+    logger.info("Tariff search response type=%s size=%s", type(results).__name__, len(results) if hasattr(results, "__len__") else "n/a")
     normalized = []
     for item in results:
+        if not isinstance(item, dict):
+            normalized.append({"code": str(item), "description": str(item), "score": 0})
+            continue
         normalized.append(
             {
                 "code": item.get("goods_nomenclature_item_id") or item.get("code"),
