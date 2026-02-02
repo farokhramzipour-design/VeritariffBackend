@@ -14,6 +14,7 @@ from app.repositories.invoice_repo import InvoiceRepository
 from app.integrations.tariff import TariffClient
 from app.integrations.fx import FXClient
 from app.services.invoice_validation_service import InvoiceValidationService
+from app.models import ValidationTask
 from app.services.storage import LocalStorageBackend
 from app.services.invoice_extractor import (
     InvoiceExtractor,
@@ -386,3 +387,105 @@ async def normalize_currency(
     service = InvoiceValidationService(repo, tariff_client, fx_client)
     normalized = await service.normalize_currency(invoice, target_currency)
     return normalized
+
+
+@router.post("/{invoice_id}/line-items/{line_item_id}/hs-code/resolve")
+async def resolve_hs_code(
+    invoice_id: str,
+    line_item_id: str,
+    payload: dict,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        invoice_uuid = uuid.UUID(invoice_id)
+        line_uuid = uuid.UUID(line_item_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    selected_code = payload.get("selected_code")
+    if not selected_code:
+        raise HTTPException(status_code=400, detail="selected_code required")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == invoice_uuid))
+    invoice = result.scalar_one_or_none()
+    if not invoice or invoice.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    result = await db.execute(
+        select(InvoiceLineItem).where(InvoiceLineItem.id == line_uuid, InvoiceLineItem.invoice_id == invoice.id)
+    )
+    line = result.scalar_one_or_none()
+    if not line:
+        raise HTTPException(status_code=404, detail="Line item not found")
+
+    line.validated_hs_code = selected_code
+    await db.commit()
+
+    result = await db.execute(
+        select(ValidationTask).where(
+            ValidationTask.invoice_id == invoice.id,
+            ValidationTask.line_item_id == line.id,
+            ValidationTask.task_type == "HS_CODE_MISSING",
+            ValidationTask.status == "OPEN",
+        )
+    )
+    task = result.scalar_one_or_none()
+    if task:
+        task.status = "RESOLVED"
+        task.resolution_jsonb = {"selected_code": selected_code}
+        task.resolved_at = datetime.utcnow()
+        await db.commit()
+
+    return {"status": "resolved", "validated_hs_code": selected_code}
+
+
+@router.post("/{invoice_id}/line-items/{line_item_id}/hs-code/refine")
+async def refine_hs_code(
+    invoice_id: str,
+    line_item_id: str,
+    payload: dict,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        invoice_uuid = uuid.UUID(invoice_id)
+        line_uuid = uuid.UUID(line_item_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    chosen_child_code = payload.get("chosen_child_code")
+    if not chosen_child_code:
+        raise HTTPException(status_code=400, detail="chosen_child_code required")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == invoice_uuid))
+    invoice = result.scalar_one_or_none()
+    if not invoice or invoice.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    result = await db.execute(
+        select(InvoiceLineItem).where(InvoiceLineItem.id == line_uuid, InvoiceLineItem.invoice_id == invoice.id)
+    )
+    line = result.scalar_one_or_none()
+    if not line:
+        raise HTTPException(status_code=404, detail="Line item not found")
+
+    line.validated_hs_code = chosen_child_code
+    await db.commit()
+
+    result = await db.execute(
+        select(ValidationTask).where(
+            ValidationTask.invoice_id == invoice.id,
+            ValidationTask.line_item_id == line.id,
+            ValidationTask.task_type == "HS_CODE_REFINEMENT",
+            ValidationTask.status == "OPEN",
+        )
+    )
+    task = result.scalar_one_or_none()
+    if task:
+        task.status = "RESOLVED"
+        task.resolution_jsonb = payload
+        task.resolved_at = datetime.utcnow()
+        await db.commit()
+
+    return {"status": "refined", "validated_hs_code": chosen_child_code}
