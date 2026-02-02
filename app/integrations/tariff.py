@@ -32,9 +32,32 @@ class TariffClient:
             resp = await client.get(url, params={"q": query, "limit": limit})
             resp.raise_for_status()
             data = resp.json()
-        results = data.get("data", []) if isinstance(data, dict) else data
+        results = self._normalize_search_response(data, limit)
         self._set_cache(cache_key, results)
         return results
+
+    def _normalize_search_response(self, data: dict, limit: int) -> list[dict]:
+        if not isinstance(data, dict):
+            return []
+        payload = data.get("data", {})
+        attributes = payload.get("attributes", {}) if isinstance(payload, dict) else {}
+        match = attributes.get("goods_nomenclature_match", {}) if isinstance(attributes, dict) else {}
+        commodities = match.get("commodities", []) if isinstance(match, dict) else []
+        headings = match.get("headings", []) if isinstance(match, dict) else []
+
+        combined = []
+        for group in (commodities, headings):
+            for item in group:
+                source = item.get("_source", {}) if isinstance(item, dict) else {}
+                combined.append(
+                    {
+                        "code": source.get("goods_nomenclature_item_id"),
+                        "description": source.get("description"),
+                        "score": item.get("_score", 0),
+                    }
+                )
+        combined = [c for c in combined if c.get("code")]
+        return combined[:limit]
 
     async def children(self, code: str) -> list[dict]:
         cache_key = f"children:{code}"

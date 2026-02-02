@@ -16,20 +16,8 @@ async def tariff_search(payload: dict):
     if not q:
         raise HTTPException(status_code=400, detail="q required")
     results = await client.search(q, limit=limit)
-    logger.info("Tariff search response type=%s size=%s", type(results).__name__, len(results) if hasattr(results, "__len__") else "n/a")
-    normalized = []
-    for item in results:
-        if not isinstance(item, dict):
-            normalized.append({"code": str(item), "description": str(item), "score": 0})
-            continue
-        normalized.append(
-            {
-                "code": item.get("goods_nomenclature_item_id") or item.get("code"),
-                "description": item.get("description") or item.get("goods_nomenclature_item_id"),
-                "score": item.get("score", 0),
-            }
-        )
-    return {"results": normalized}
+    logger.info("Tariff search normalized count=%s", len(results))
+    return {"results": results}
 
 
 @router.get("/commodities/{code}/children")
