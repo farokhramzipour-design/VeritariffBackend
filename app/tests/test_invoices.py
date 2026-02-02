@@ -4,6 +4,7 @@ from httpx import AsyncClient
 
 from app.api.deps import get_current_user
 from app.models import User, DraftInvoice, UploadedDocument
+from app.models import Invoice, InvoiceLineItem
 from app.models.enums import PlanEnum, AccountTypeEnum, StatusEnum, AuthProviderEnum
 from app.services.invoice_validator import reconcile_totals, validate_required_fields, validate_quantities
 
@@ -13,9 +14,7 @@ async def test_totals_reconciliation():
     payload = {
         "currency": "USD",
         "invoice_date": "2026-01-01",
-        "subtotal": 100.0,
-        "tax": 10.0,
-        "total": 110.0,
+        "total_value": 100.0,
         "line_items": [
             {"description": "Item", "quantity": 2, "unit_price": 50.0, "line_total": 100.0}
         ],
@@ -70,14 +69,13 @@ async def test_idempotent_confirm(client, db_session):
     client.dependency_overrides[get_current_user] = override_user
 
     body = {
-        "vendor_name": "Vendor",
+        "supplier_name": "Vendor",
         "invoice_number": "INV-1",
         "invoice_date": "2026-01-01",
         "due_date": "2026-02-01",
+        "incoterm": "EXW",
         "currency": "USD",
-        "subtotal": 100.0,
-        "tax": 0.0,
-        "total": 100.0,
+        "total_value": 100.0,
         "line_items": [
             {"description": "Item", "quantity": 1, "unit_price": 100.0, "line_total": 100.0}
         ],
@@ -91,5 +89,54 @@ async def test_idempotent_confirm(client, db_session):
         second = await ac.post(f"/api/v1/invoices/drafts/{draft.id}/confirm", json=body)
         assert second.status_code == 200
         assert second.json()["invoice_id"] == invoice_id
+
+    client.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_validate_creates_freight_task(client, db_session):
+    user = User(
+        id=uuid.uuid4(),
+        email="validate@example.com",
+        first_name="Val",
+        last_name="User",
+        plan=PlanEnum.free,
+        account_type=AccountTypeEnum.free,
+        status=StatusEnum.active,
+        auth_provider=AuthProviderEnum.google,
+    )
+    invoice = Invoice(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        supplier_name="Supplier",
+        invoice_number="INV-2",
+        invoice_date="2026-01-02",
+        incoterm="EXW",
+        currency="USD",
+        total_value=100.0,
+        source_upload_id=uuid.uuid4(),
+        status="DRAFT",
+    )
+    line = InvoiceLineItem(
+        id=uuid.uuid4(),
+        invoice_id=invoice.id,
+        description="Item",
+        quantity=1,
+        unit_price=100.0,
+        line_total=100.0,
+        sort_order=0,
+    )
+    db_session.add_all([user, invoice, line])
+    await db_session.commit()
+
+    async def override_user():
+        return user
+
+    client.dependency_overrides[get_current_user] = override_user
+    async with AsyncClient(app=client, base_url="http://test") as ac:
+        resp = await ac.post(f"/api/v1/invoices/{invoice.id}/validate")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "needs_user_input"
 
     client.dependency_overrides.pop(get_current_user, None)

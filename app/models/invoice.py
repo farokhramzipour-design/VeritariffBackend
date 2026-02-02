@@ -42,22 +42,25 @@ class Invoice(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    vendor_name: Mapped[str | None] = mapped_column(String(255))
+    supplier_name: Mapped[str | None] = mapped_column(String(255))
     invoice_number: Mapped[str | None] = mapped_column(String(100))
     invoice_date: Mapped[str | None] = mapped_column(String(20))
     due_date: Mapped[str | None] = mapped_column(String(20))
+    incoterm: Mapped[str | None] = mapped_column(String(10))
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
-    subtotal: Mapped[float | None] = mapped_column(Numeric(14, 2))
-    tax: Mapped[float | None] = mapped_column(Numeric(14, 2))
-    total: Mapped[float | None] = mapped_column(Numeric(14, 2))
+    total_value: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    freight_cost: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    insurance_cost: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
     source_upload_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("uploaded_documents.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    items = relationship("InvoiceItem", back_populates="invoice")
+    items = relationship("InvoiceLineItem", back_populates="invoice")
 
 
-class InvoiceItem(Base):
-    __tablename__ = "invoice_items"
+class InvoiceLineItem(Base):
+    __tablename__ = "invoice_line_items"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     invoice_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("invoices.id"), nullable=False)
@@ -65,8 +68,25 @@ class InvoiceItem(Base):
     sku: Mapped[str | None] = mapped_column(String(64))
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
     unit_price: Mapped[float | None] = mapped_column(Numeric(12, 2))
-    tax_rate: Mapped[float | None] = mapped_column(Numeric(6, 3))
     line_total: Mapped[float | None] = mapped_column(Numeric(14, 2))
+    extracted_hs_code: Mapped[str | None] = mapped_column(String(20))
+    validated_hs_code: Mapped[str | None] = mapped_column(String(20))
+    hs_confidence: Mapped[float | None] = mapped_column(Numeric(5, 3))
+    metadata_jsonb: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     invoice = relationship("Invoice", back_populates="items")
+
+
+class ValidationTask(Base):
+    __tablename__ = "validation_tasks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("invoices.id"), nullable=False)
+    line_item_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("invoice_line_items.id"), nullable=True)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="OPEN")
+    payload_jsonb: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    resolution_jsonb: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

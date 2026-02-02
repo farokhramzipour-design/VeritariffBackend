@@ -8,7 +8,7 @@ from app.models.shipment_forwarder import ShipmentForwarder
 from app.models.buyer_eu import BuyerEU
 from app.models.oauth_state import OAuthState
 from app.models.refresh_token import RefreshToken
-from app.models.invoice import UploadedDocument, DraftInvoice, Invoice, InvoiceItem
+from app.models.invoice import UploadedDocument, DraftInvoice, Invoice, InvoiceLineItem, ValidationTask
 
 __all__ = [
     "User",
@@ -24,5 +24,6 @@ __all__ = [
     "UploadedDocument",
     "DraftInvoice",
     "Invoice",
-    "InvoiceItem",
+    "InvoiceLineItem",
+    "ValidationTask",
 ]

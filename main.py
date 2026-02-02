@@ -1,6 +1,8 @@
 
 import logging
-from fastapi import FastAPI
+import uuid
+from fastapi import FastAPI, Request
+from starlette.responses import Response
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
@@ -25,6 +27,14 @@ if settings.cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    response: Response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 @app.on_event("startup")

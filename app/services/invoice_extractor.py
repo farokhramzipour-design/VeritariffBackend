@@ -16,20 +16,37 @@ class InvoiceExtractor:
         payload = await self.llm_client.extract_json(EXTRACT_PROMPT, normalized)
         if payload is None:
             payload = {
-                "vendor_name": None,
+                "supplier_name": None,
                 "invoice_number": None,
                 "invoice_date": None,
                 "due_date": None,
+                "incoterm": None,
                 "currency": None,
-                "subtotal": None,
-                "tax": None,
-                "total": None,
+                "total_value": None,
+                "freight_cost": None,
+                "insurance_cost": None,
                 "line_items": [],
                 "field_confidence": {},
                 "confidence_score": 0.1,
                 "warnings": ["LLM extraction unavailable"],
             }
         return payload
+
+
+def detect_insurance_amount(text: str) -> float | None:
+    patterns = [
+        r"insurance\\s*(amount|premium|total)\\s*[:\\-]?\\s*([\\d,]+\\.?\\d*)",
+        r"total\\s*insurance\\s*[:\\-]?\\s*([\\d,]+\\.?\\d*)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            value = match.group(match.lastindex)
+            try:
+                return float(value.replace(\",\", \"\"))
+            except Exception:
+                continue
+    return None
 
 
 async def extract_text_from_pdf(path: str) -> str:

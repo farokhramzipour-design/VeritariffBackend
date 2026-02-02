@@ -27,16 +27,9 @@ def reconcile_totals(payload: dict, tolerance: float = 0.01) -> Tuple[bool, str 
             line_total = qty * unit_price
         line_total_sum += float(line_total)
 
-    subtotal = payload.get("subtotal")
-    if subtotal is not None and abs(line_total_sum - float(subtotal)) > tolerance:
-        return False, "subtotal does not match sum of line totals"
-
-    total = payload.get("total")
-    tax = payload.get("tax") or 0.0
-    if total is not None and subtotal is not None:
-        expected = float(subtotal) + float(tax)
-        if abs(float(total) - expected) > tolerance:
-            return False, "total does not match subtotal + tax"
+    total_value = payload.get("total_value")
+    if total_value is not None and abs(line_total_sum - float(total_value)) > tolerance:
+        return False, "total_value does not match sum of line totals"
 
     return True, None
 

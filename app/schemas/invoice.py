@@ -24,14 +24,15 @@ class LineItemExtract(BaseModel):
 
 
 class ExtractedInvoicePayload(BaseModel):
-    vendor_name: str | None = None
+    supplier_name: str | None = None
     invoice_number: str | None = None
     invoice_date: str | None = None
     due_date: str | None = None
+    incoterm: str | None = None
     currency: str | None = None
-    subtotal: float | None = None
-    tax: float | None = None
-    total: float | None = None
+    total_value: float | None = None
+    freight_cost: float | None = None
+    insurance_cost: float | None = None
     line_items: list[LineItemExtract] = Field(default_factory=list)
     field_confidence: dict[str, float | None] = Field(default_factory=dict)
 
@@ -55,20 +56,22 @@ class ConfirmLineItem(BaseModel):
     description: str
     quantity: float
     unit_price: float | None = None
-    tax_rate: float | None = None
     line_total: float | None = None
     sku: str | None = None
+    extracted_hs_code: str | None = None
+    validated_hs_code: str | None = None
 
 
 class ConfirmInvoiceRequest(BaseModel):
-    vendor_name: str | None = None
+    supplier_name: str | None = None
     invoice_number: str | None = None
     invoice_date: str
     due_date: str | None = None
+    incoterm: str | None = None
     currency: str
-    subtotal: float | None = None
-    tax: float | None = None
-    total: float | None = None
+    total_value: float | None = None
+    freight_cost: float | None = None
+    insurance_cost: float | None = None
     line_items: list[ConfirmLineItem]
 
 
@@ -78,8 +81,10 @@ class InvoiceItemOut(BaseModel):
     sku: str | None = None
     quantity: float
     unit_price: float | None = None
-    tax_rate: float | None = None
     line_total: float | None = None
+    extracted_hs_code: str | None = None
+    validated_hs_code: str | None = None
+    hs_confidence: float | None = None
     sort_order: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -87,14 +92,15 @@ class InvoiceItemOut(BaseModel):
 
 class InvoiceOut(BaseModel):
     id: UUID
-    vendor_name: str | None = None
+    supplier_name: str | None = None
     invoice_number: str | None = None
     invoice_date: str | None = None
     due_date: str | None = None
+    incoterm: str | None = None
     currency: str
-    subtotal: float | None = None
-    tax: float | None = None
-    total: float | None = None
+    total_value: float | None = None
+    freight_cost: float | None = None
+    insurance_cost: float | None = None
     created_at: datetime
     items: list[InvoiceItemOut] = Field(default_factory=list)
 

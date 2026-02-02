@@ -10,26 +10,27 @@ EXTRACT_PROMPT = """
 You are an AI that extracts invoice data. Output strict JSON only.
 Schema:
 {
-  "vendor_name": string|null,
+  "supplier_name": string|null,
   "invoice_number": string|null,
   "invoice_date": string|null,
   "due_date": string|null,
+  "incoterm": string|null,
   "currency": string|null,
-  "subtotal": number|null,
-  "tax": number|null,
-  "total": number|null,
+  "total_value": number|null,
+  "freight_cost": number|null,
+  "insurance_cost": number|null,
   "line_items": [
     {
       "description": string,
       "quantity": number|null,
       "unit_price": number|null,
-      "tax_rate": number|null,
       "line_total": number|null,
       "sku": string|null,
+      "extracted_hs_code": string|null,
       "confidence": number|null
     }
   ],
-  "field_confidence": {"field": number},
+  "field_confidence": {"field": number|null},
   "confidence_score": number,
   "warnings": [string]
 }

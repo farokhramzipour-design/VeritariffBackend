@@ -8,30 +8,31 @@ from sqlalchemy import select, func
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.models import UploadedDocument, DraftInvoice, Invoice, InvoiceItem
-from app.schemas.invoice import (
-    UploadResponse,
-    ExtractResponse,
-    DraftInvoiceOut,
-    ConfirmInvoiceRequest,
-    InvoiceOut,
-    ListResponse,
-)
+from app.models import UploadedDocument, DraftInvoice, Invoice, InvoiceLineItem, ValidationTask
+from app.schemas.invoice import UploadResponse, ExtractResponse, DraftInvoiceOut, ConfirmInvoiceRequest, InvoiceOut, ListResponse
+from app.repositories.invoice_repo import InvoiceRepository
+from app.integrations.tariff import TariffClient
+from app.integrations.fx import FXClient
+from app.services.invoice_validation_service import InvoiceValidationService
 from app.services.storage import LocalStorageBackend
 from app.services.invoice_extractor import (
     InvoiceExtractor,
     extract_text_from_pdf,
     extract_text_from_docx,
     ocr_fallback,
+    detect_insurance_amount,
 )
 from app.services.llm_client import LLMClient
 from app.services.invoice_validator import validate_required_fields, reconcile_totals, validate_quantities
+from app.services.invoice_validation_service import InvoiceValidationService
 
 router = APIRouter(prefix="/invoices")
 
 storage = LocalStorageBackend(settings.UPLOAD_DIR)
 llm_client = LLMClient(settings.LLM_PROVIDER, model=settings.OPENAI_MODEL)
 extractor = InvoiceExtractor(llm_client)
+tariff_client = TariffClient(settings.TARIFF_API_BASE_URL)
+fx_client = FXClient(settings.FX_API_BASE_URL, api_key=settings.FX_API_KEY)
 
 ALLOWED_TYPES = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
@@ -110,6 +111,10 @@ async def extract_invoice(
 
     raw_excerpt = text[:2000] if text else None
     extracted = await extractor.extract(text or "")
+    if extracted.get("insurance_cost") in (None, ""):
+        insurance = detect_insurance_amount(text or "")
+        if insurance is not None:
+            extracted["insurance_cost"] = insurance
     warnings = extracted.get("warnings") or []
     confidence = extracted.get("confidence_score")
 
@@ -192,14 +197,16 @@ async def confirm_draft(
 
     invoice = Invoice(
         user_id=user.id,
-        vendor_name=payload.vendor_name,
+        supplier_name=payload.supplier_name,
         invoice_number=payload.invoice_number,
         invoice_date=payload.invoice_date,
         due_date=payload.due_date,
+        incoterm=payload.incoterm,
         currency=payload.currency,
-        subtotal=payload.subtotal,
-        tax=payload.tax,
-        total=payload.total,
+        total_value=payload.total_value,
+        freight_cost=payload.freight_cost,
+        insurance_cost=payload.insurance_cost,
+        status="VALIDATED",
         source_upload_id=draft.upload_id,
     )
     db.add(invoice)
@@ -209,14 +216,15 @@ async def confirm_draft(
     items = []
     for idx, item in enumerate(payload.line_items):
         items.append(
-            InvoiceItem(
+            InvoiceLineItem(
                 invoice_id=invoice.id,
                 description=item.description,
                 sku=item.sku,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
-                tax_rate=item.tax_rate,
                 line_total=item.line_total,
+                extracted_hs_code=item.extracted_hs_code,
+                validated_hs_code=item.validated_hs_code,
                 sort_order=idx,
             )
         )
@@ -247,19 +255,20 @@ async def get_invoice(
     if not invoice or invoice.user_id != user.id:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    result = await db.execute(select(InvoiceItem).where(InvoiceItem.invoice_id == invoice.id).order_by(InvoiceItem.sort_order))
+    result = await db.execute(select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == invoice.id).order_by(InvoiceLineItem.sort_order))
     items = result.scalars().all()
 
     return InvoiceOut(
         id=invoice.id,
-        vendor_name=invoice.vendor_name,
+        supplier_name=invoice.supplier_name,
         invoice_number=invoice.invoice_number,
         invoice_date=invoice.invoice_date,
         due_date=invoice.due_date,
+        incoterm=invoice.incoterm,
         currency=invoice.currency,
-        subtotal=float(invoice.subtotal) if invoice.subtotal is not None else None,
-        tax=float(invoice.tax) if invoice.tax is not None else None,
-        total=float(invoice.total) if invoice.total is not None else None,
+        total_value=float(invoice.total_value) if invoice.total_value is not None else None,
+        freight_cost=float(invoice.freight_cost) if invoice.freight_cost is not None else None,
+        insurance_cost=float(invoice.insurance_cost) if invoice.insurance_cost is not None else None,
         created_at=invoice.created_at,
         items=items,
     )
@@ -283,14 +292,15 @@ async def list_invoices(
         payload_items.append(
             InvoiceOut(
                 id=invoice.id,
-                vendor_name=invoice.vendor_name,
+                supplier_name=invoice.supplier_name,
                 invoice_number=invoice.invoice_number,
                 invoice_date=invoice.invoice_date,
                 due_date=invoice.due_date,
+                incoterm=invoice.incoterm,
                 currency=invoice.currency,
-                subtotal=float(invoice.subtotal) if invoice.subtotal is not None else None,
-                tax=float(invoice.tax) if invoice.tax is not None else None,
-                total=float(invoice.total) if invoice.total is not None else None,
+                total_value=float(invoice.total_value) if invoice.total_value is not None else None,
+                freight_cost=float(invoice.freight_cost) if invoice.freight_cost is not None else None,
+                insurance_cost=float(invoice.insurance_cost) if invoice.insurance_cost is not None else None,
                 created_at=invoice.created_at,
                 items=[],
             )
@@ -328,3 +338,51 @@ async def list_drafts(
             )
         )
     return ListResponse(items=payload_items, total=total, limit=limit, offset=offset)
+
+
+@router.post("/{invoice_id}/validate")
+async def validate_invoice(
+    invoice_id: str,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        invoice_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice id")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == invoice_uuid))
+    invoice = result.scalar_one_or_none()
+    if not invoice or invoice.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    repo = InvoiceRepository(db)
+    service = InvoiceValidationService(repo, tariff_client, fx_client)
+    return await service.validate_invoice(invoice)
+
+
+@router.post("/{invoice_id}/normalize-currency")
+async def normalize_currency(
+    invoice_id: str,
+    payload: dict,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        invoice_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice id")
+
+    target_currency = payload.get("target_currency")
+    if not target_currency:
+        raise HTTPException(status_code=400, detail="target_currency required")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == invoice_uuid))
+    invoice = result.scalar_one_or_none()
+    if not invoice or invoice.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    repo = InvoiceRepository(db)
+    service = InvoiceValidationService(repo, tariff_client, fx_client)
+    normalized = await service.normalize_currency(invoice, target_currency)
+    return normalized
