@@ -43,7 +43,7 @@ def detect_insurance_amount(text: str) -> float | None:
         if match:
             value = match.group(match.lastindex)
             try:
-                return float(value.replace(\",\", \"\"))
+                return float(value.replace(",", ""))
             except Exception:
                 continue
     return None
