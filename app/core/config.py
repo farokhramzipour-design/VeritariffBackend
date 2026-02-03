@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str | None = None
     OPENAI_MODEL: str = "gpt-4o"
     TARIFF_API_BASE_URL: str = "https://www.trade-tariff.service.gov.uk/api/v2"
-    FX_API_BASE_URL: str = "https://example-fx.local"
+    FX_API_BASE_URL: str = "https://api.frankfurter.app/latest"
     FX_API_KEY: str | None = None
 
     @property
