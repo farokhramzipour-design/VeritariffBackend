@@ -67,7 +67,7 @@ async def require_free_account(user: User = Depends(get_current_user)) -> User:
 async def validate_refresh_token(
     refresh_token: str,
     db: AsyncSession,
-) -> User:
+) -> tuple[User, RefreshToken]:
     try:
         payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         token_data = TokenPayload(**payload)
@@ -88,4 +88,4 @@ async def validate_refresh_token(
     if not stored or stored.revoked_at is not None or stored.expires_at < datetime.utcnow():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired or revoked")
 
-    return user
+    return user, stored

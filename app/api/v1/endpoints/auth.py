@@ -163,5 +163,7 @@ async def refresh_token(
     refresh_token: str = Query(..., description="Refresh token"),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await validate_refresh_token(refresh_token, db)
+    user, stored = await validate_refresh_token(refresh_token, db)
+    stored.revoked_at = datetime.utcnow()
+    await db.commit()
     return await _issue_tokens(db, user)
